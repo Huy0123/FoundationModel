@@ -1,0 +1,22 @@
+{
+  "foundationpose": {
+    "url": "https://github.com/NVlabs/FoundationPose.git",
+    "commit": "a1b694b83e633c2cb6115b9063d940a687759392"
+  },
+  "pytorch3d": {
+    "url": "https://github.com/facebookresearch/pytorch3d.git",
+    "commit": "978cd99221b9e0a6a568f1d427854d73363265cf"
+  },
+  "nvdiffrast": {
+    "url": "https://github.com/NVlabs/nvdiffrast.git",
+    "commit": "253ac4fcea7de5f396371124af597e6cc957bfae"
+  },
+  "cnos": {
+    "url": "https://github.com/nv-nguyen/cnos.git",
+    "commit": "298d1f3366171464ca271659f0e2f7a6eb8e39b4"
+  },
+  "bop_toolkit": {
+    "url": "https://github.com/thodan/bop_toolkit.git",
+    "commit": "cea62d651c7e395b2e1962b9749e4e89693c6ac4"
+  }
+}
