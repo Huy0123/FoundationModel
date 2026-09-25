@@ -85,7 +85,7 @@ For another standard BOP YCB-V extraction, the expected layout is:
 
 The supplied archive includes the annotations needed for pose metrics. The pipeline also needs both FoundationPose checkpoint folders: `2024-01-11-20-02-45` (scorer) and `2023-10-28-18-33-37` (refiner), each with `config.yml` and `model_best.pth`. The official FoundationPose README links to the [pretrained weights](https://drive.google.com/drive/folders/1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i?usp=sharing); copy/extract them under `/content/drive/MyDrive/foundationpose-assets/`.
 
-Set the paths and object IDs after mounting Drive, extracting the YCB-V archive, and unzipping the FoundationPose weights:
+After mounting Drive, extracting the YCB-V archive, and unzipping the FoundationPose weights, set the paths. The runner auto-detects object IDs from the CAD models present: it finds `2,4,5,6,9` in the supplied five-CAD archive, or all 21 IDs when the full model library is present.
 
 Run installation and the entire pipeline from one Colab Python cell:
 
@@ -93,8 +93,8 @@ Run installation and the entire pipeline from one Colab Python cell:
 import os
 os.environ["YCB_INPUT_ROOT"] = "/content/data"
 os.environ["FOUNDATIONPOSE_ASSETS_ROOT"] = "/content/drive/MyDrive/foundationpose-assets"
-os.environ["YCBV_TARGET_OBJ_IDS"] = "2,4,5,6,9"
-os.environ["YCBV_PREFERRED_OBJ_IDS"] = "2,4,5,6,9"
+os.environ.pop("YCBV_TARGET_OBJ_IDS", None)
+os.environ.pop("YCBV_PREFERRED_OBJ_IDS", None)
 !git -C /content/FoundationModel pull && bash /content/FoundationModel/tools/install_colab_cached.sh && python3 /content/FoundationModel/tools/run_colab_pipeline.py
 ```
 
