@@ -22,9 +22,11 @@ After extracting the dataset and weights and setting their paths below, use the 
 
 Select a Colab GPU runtime before installing. The installer uses the runtime's existing PyTorch and CUDA; it does not upgrade PyTorch, install conda, or change CUDA. It installs missing compiler, Boost, Eigen, and EGL development packages with `apt-get install` (no `apt upgrade`) and installs the Python build helpers `ninja` and `pybind11` before a cache-miss build. CUDA compiler parallelism defaults to two jobs to reduce Colab RAM exhaustion; set `MAX_JOBS=1` for a smaller-memory runtime, or raise it if the runtime has enough RAM.
 
+For the reported Colab environment (`torch 2.11.0+cu128`), PyTorch3D can use a community-built binary wheel instead of compiling its CUDA/C++ extensions. This wheel is not published or tested by the PyTorch3D maintainers; the installer checks the matching Python/OS wheel and the final verification imports it. Set `PYTORCH3D_INSTALL_MODE=prebuilt` to use it and fail fast rather than silently spending time on a source build. Use `source` for the pinned upstream build, or `auto` to try the wheel and fall back to source if unavailable.
+
 ## Later runs
 
-Mount Drive, clone or update the repository under `/content`, then run `bash tools/install_colab_cached.sh` again. A matching cache is copied from Drive to local `/content` before pip installs its wheels. On a cache hit the installer does not compile PyTorch3D, nvdiffrast, or FoundationPose `mycpp` again. During a first build, each completed wheel and the `mycpp` extension are saved separately to Drive. If Colab disconnects after a stage completes, rerunning the command resumes from those saved artifacts. An interruption during PyTorch3D's own compilation still requires that wheel build to restart because pip only produces the wheel when compilation finishes.
+Mount Drive, clone or update the repository under `/content`, then run `bash tools/install_colab_cached.sh` again. A matching cache is copied from Drive to local `/content` before pip installs its wheels. On a cache hit the installer does not compile PyTorch3D, nvdiffrast, or FoundationPose `mycpp` again. During a first setup, completed wheels and the `mycpp` extension are saved separately to Drive. If Colab disconnects after a stage completes, rerunning the command resumes from those saved artifacts. In `source` mode, an interruption during PyTorch3D compilation requires that wheel build to restart; in `prebuilt` mode it downloads the matching wheel instead.
 
 The Drive cache path is:
 
@@ -93,12 +95,13 @@ Run installation and the entire pipeline from one Colab Python cell:
 import os
 os.environ["YCB_INPUT_ROOT"] = "/content/data"
 os.environ["FOUNDATIONPOSE_ASSETS_ROOT"] = "/content/drive/MyDrive/foundationpose-assets"
+os.environ["PYTORCH3D_INSTALL_MODE"] = "prebuilt"
 os.environ.pop("YCBV_TARGET_OBJ_IDS", None)
 os.environ.pop("YCBV_PREFERRED_OBJ_IDS", None)
 !git -C /content/FoundationModel pull && bash /content/FoundationModel/tools/install_colab_cached.sh && python3 /content/FoundationModel/tools/run_colab_pipeline.py
 ```
 
-The first run still has to build PyTorch3D, nvdiffrast, and `mycpp`; later runs with the same environment fingerprint use the Drive cache. The runner starts in a fresh Python process after installation, so a kernel restart is not needed. If Colab disconnects during a build, reconnect, mount Drive, update the repository, and rerun the same cell to resume completed stages. Keep the runtime alive until the runner writes its final success line; then copy the MP4 and metrics from the workspace to Drive.
+With `PYTORCH3D_INSTALL_MODE=prebuilt` and the reported Torch/CUDA combination, the first run downloads PyTorch3D instead of compiling it; nvdiffrast and `mycpp` still need their first build. Later runs with the same environment fingerprint use the Drive cache. The runner starts in a fresh Python process after installation, so a kernel restart is not needed. If Colab disconnects during a source-mode build, reconnect, mount Drive, update the repository, and rerun the same cell to resume completed stages. Keep the runtime alive until the runner writes its final success line; then copy the MP4 and metrics from the workspace to Drive.
 
 The runner checks GPU access, BOP directory layout, CADs, and weights before starting. It then selects a scene, prepares CNOS templates, runs detector-assisted FoundationPose tracking, computes benchmark CSVs/charts, and renders the final MP4. The runner reuses the cached `mycpp` extension and skips duplicate pip installs. Results are written under `/content/cnos_ycbv_workspace/visualizations/` and `/content/cnos_ycbv_workspace/metrics/`; copy them to Drive before the Colab runtime ends.
 

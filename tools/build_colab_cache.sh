@@ -15,9 +15,15 @@ BUILD_DIR="$WORK_ROOT/colab_env_build/$FINGERPRINT"
 WHEELHOUSE="$BUILD_DIR/wheelhouse"
 PARTIAL_DIR="$CACHE_ROOT/$FINGERPRINT.partial"
 MAX_JOBS="${MAX_JOBS:-2}"
+PYTORCH3D_INSTALL_MODE="${PYTORCH3D_INSTALL_MODE:-source}"
+PYTORCH3D_WHEEL_INDEX="${PYTORCH3D_WHEEL_INDEX:-https://miropsota.github.io/torch_packages_builder}"
 
 if [[ ! "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]]; then
   echo "MAX_JOBS must be a positive integer, got: $MAX_JOBS" >&2
+  exit 2
+fi
+if [[ "$PYTORCH3D_INSTALL_MODE" != source && "$PYTORCH3D_INSTALL_MODE" != auto && "$PYTORCH3D_INSTALL_MODE" != prebuilt ]]; then
+  echo "PYTORCH3D_INSTALL_MODE must be source, auto, or prebuilt" >&2
   exit 2
 fi
 export MAX_JOBS
@@ -105,10 +111,37 @@ NVD_COMMIT="$(read_source nvdiffrast commit)"
 if has_wheel pytorch3d; then
   echo "[RESUME] Reusing completed PyTorch3D wheel from Drive partial cache"
 else
-  echo "[BUILD] PyTorch3D wheel"
-  "$PYTHON" -m pip wheel --no-build-isolation --no-deps -w "$WHEELHOUSE" "git+$P3D_URL@$P3D_COMMIT"
+  PREBUILT_SPEC="$("$PYTHON" - <<'PY'
+import sys
+import torch
+if sys.platform == "linux" and torch.__version__.split("+")[0] == "2.11.0" and torch.version.cuda == "12.8":
+    print("pytorch3d==0.7.9+d9839a9pt2.11.0cu128")
+PY
+)"
+  USE_PREBUILT=0
+  if [[ "$PYTORCH3D_INSTALL_MODE" == prebuilt && -z "$PREBUILT_SPEC" ]]; then
+    echo "Prebuilt PyTorch3D wheel currently requires Linux, PyTorch 2.11.0, and CUDA 12.8; got:" >&2
+    "$PYTHON" "$SCRIPT_DIR/detect_colab_env.py" --json >&2
+    exit 2
+  fi
+  if [[ "$PYTORCH3D_INSTALL_MODE" != source && -n "$PREBUILT_SPEC" ]]; then
+    echo "[DOWNLOAD] Community prebuilt PyTorch3D wheel: $PREBUILT_SPEC"
+    if "$PYTHON" -m pip download --only-binary=:all: --no-deps \
+      --index-url "$PYTORCH3D_WHEEL_INDEX" --dest "$WHEELHOUSE" "$PREBUILT_SPEC"; then
+      USE_PREBUILT=1
+    elif [[ "$PYTORCH3D_INSTALL_MODE" == prebuilt ]]; then
+      echo "Could not download the matching prebuilt PyTorch3D wheel; stopping without a source build." >&2
+      exit 1
+    else
+      echo "[WARN] Prebuilt wheel unavailable; falling back to the pinned source build"
+    fi
+  fi
+  if (( USE_PREBUILT == 0 )); then
+    echo "[BUILD] Pinned PyTorch3D source wheel"
+    "$PYTHON" -m pip wheel --no-build-isolation --no-deps -w "$WHEELHOUSE" "git+$P3D_URL@$P3D_COMMIT"
+  fi
   mapfile -t P3D_WHEELS < <(find "$WHEELHOUSE" -maxdepth 1 -type f -name 'pytorch3d-*.whl' -print)
-  (( ${#P3D_WHEELS[@]} > 0 )) || { echo "PyTorch3D build produced no wheel" >&2; exit 1; }
+  (( ${#P3D_WHEELS[@]} > 0 )) || { echo "PyTorch3D wheel download/build produced no wheel" >&2; exit 1; }
   for wheel in "${P3D_WHEELS[@]}"; do persist_artifact "$wheel" "$PARTIAL_DIR/wheelhouse"; done
 fi
 
