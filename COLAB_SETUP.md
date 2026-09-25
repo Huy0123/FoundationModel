@@ -16,20 +16,23 @@ Then clone your GitHub repository (replace `<repo>` with its URL) and run:
 ```bash
 !git clone https://github.com/Huy0123/FoundationModel.git /content/FoundationModel
 %cd /content/FoundationModel
-!bash tools/install_colab_cached.sh
 ```
 
-Select a Colab GPU runtime before installing. The installer uses the runtime's existing PyTorch and CUDA; it does not upgrade PyTorch, install conda, or change CUDA. It installs missing compiler, Boost, Eigen, and EGL development packages with `apt-get install` (no `apt upgrade`) and installs the Python build helpers `ninja` and `pybind11` before a cache-miss build.
+After extracting the dataset and weights and setting their paths below, use the one-cell install-and-run command. On its first use it builds the compiled dependencies; subsequent uses load the Drive cache.
+
+Select a Colab GPU runtime before installing. The installer uses the runtime's existing PyTorch and CUDA; it does not upgrade PyTorch, install conda, or change CUDA. It installs missing compiler, Boost, Eigen, and EGL development packages with `apt-get install` (no `apt upgrade`) and installs the Python build helpers `ninja` and `pybind11` before a cache-miss build. CUDA compiler parallelism defaults to two jobs to reduce Colab RAM exhaustion; set `MAX_JOBS=1` for a smaller-memory runtime, or raise it if the runtime has enough RAM.
 
 ## Later runs
 
-Mount Drive, clone or update the repository under `/content`, then run `bash tools/install_colab_cached.sh` again. A matching cache is copied from Drive to local `/content` before pip installs its wheels. On a cache hit the installer does not compile PyTorch3D, nvdiffrast, or FoundationPose `mycpp` again.
+Mount Drive, clone or update the repository under `/content`, then run `bash tools/install_colab_cached.sh` again. A matching cache is copied from Drive to local `/content` before pip installs its wheels. On a cache hit the installer does not compile PyTorch3D, nvdiffrast, or FoundationPose `mycpp` again. During a first build, each completed wheel and the `mycpp` extension are saved separately to Drive. If Colab disconnects after a stage completes, rerunning the command resumes from those saved artifacts. An interruption during PyTorch3D's own compilation still requires that wheel build to restart because pip only produces the wheel when compilation finishes.
 
 The Drive cache path is:
 
 ```text
 /content/drive/MyDrive/colab_env_cache/foundationpose/<fingerprint>/
 ```
+
+In-progress stages use the sibling folder `<fingerprint>.partial/`.
 
 ## Inspect the environment and cache key
 
@@ -82,7 +85,9 @@ For another standard BOP YCB-V extraction, the expected layout is:
 
 The supplied archive includes the annotations needed for pose metrics. The pipeline also needs both FoundationPose checkpoint folders: `2024-01-11-20-02-45` (scorer) and `2023-10-28-18-33-37` (refiner), each with `config.yml` and `model_best.pth`. The official FoundationPose README links to the [pretrained weights](https://drive.google.com/drive/folders/1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i?usp=sharing); copy/extract them under `/content/drive/MyDrive/foundationpose-assets/`.
 
-After the installer finishes building all wheels and prints its final verification success, update the cloned repository and set the asset path. The runner auto-detects the supplied archive and these five object IDs:
+Set the paths and object IDs after mounting Drive, extracting the YCB-V archive, and unzipping the FoundationPose weights:
+
+Run installation and the entire pipeline from one Colab Python cell:
 
 ```python
 import os
@@ -90,15 +95,10 @@ os.environ["YCB_INPUT_ROOT"] = "/content/data"
 os.environ["FOUNDATIONPOSE_ASSETS_ROOT"] = "/content/drive/MyDrive/foundationpose-assets"
 os.environ["YCBV_TARGET_OBJ_IDS"] = "2,4,5,6,9"
 os.environ["YCBV_PREFERRED_OBJ_IDS"] = "2,4,5,6,9"
+!git -C /content/FoundationModel pull && bash /content/FoundationModel/tools/install_colab_cached.sh && python3 /content/FoundationModel/tools/run_colab_pipeline.py
 ```
 
-Run the end-to-end cells:
-
-```python
-%run /content/FoundationModel/tools/run_colab_pipeline.py
-```
-
-If the notebook already cloned the repo before this runner update, run `!git -C /content/FoundationModel pull` first. Do not start the runner while the PyTorch3D wheel is still building. After the installer reports success, restart the Colab session once so the active kernel reloads the compiled packages; then mount Drive again, pull the repo update, and run the commands above. Keep the runtime session alive until the runner writes its final success line; then copy the MP4 and metrics from the workspace to Drive.
+The first run still has to build PyTorch3D, nvdiffrast, and `mycpp`; later runs with the same environment fingerprint use the Drive cache. The runner starts in a fresh Python process after installation, so a kernel restart is not needed. If Colab disconnects during a build, reconnect, mount Drive, update the repository, and rerun the same cell to resume completed stages. Keep the runtime alive until the runner writes its final success line; then copy the MP4 and metrics from the workspace to Drive.
 
 The runner checks GPU access, BOP directory layout, CADs, and weights before starting. It then selects a scene, prepares CNOS templates, runs detector-assisted FoundationPose tracking, computes benchmark CSVs/charts, and renders the final MP4. The runner reuses the cached `mycpp` extension and skips duplicate pip installs. Results are written under `/content/cnos_ycbv_workspace/visualizations/` and `/content/cnos_ycbv_workspace/metrics/`; copy them to Drive before the Colab runtime ends.
 
