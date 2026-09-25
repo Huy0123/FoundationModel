@@ -57,6 +57,37 @@ The installer appends output to `/content/colab_setup.log`, including environmen
 !time bash tools/install_colab_cached.sh
 ```
 
+## Run the full RGB-D tracking and benchmark pipeline
+
+The pipeline runner executes the existing cells in one Python process and skips the old Kaggle installer. It expects the BOP YCB-V directory layout:
+
+```text
+<YCB_INPUT_ROOT>/
+  ycbv_test_all/test/<scene>/{rgb,depth,scene_camera.json,scene_gt.json}
+  ycbv_models/models/{obj_XXXXXX.ply,models_info.json}
+  ycbv_base/ycbv/test_targets_bop19.json
+```
+
+For pose metrics, provide the BOP ground-truth annotations. A folder containing only RGB video and CAD meshes can support neither this RGB-D registration/tracking flow nor ADD/ADD-S benchmark metrics by itself. The current pipeline also needs both FoundationPose checkpoint folders: `2024-01-11-20-02-45` (scorer) and `2023-10-28-18-33-37` (refiner), each with `config.yml` and `model_best.pth`. The official FoundationPose README links to the [pretrained weights](https://drive.google.com/drive/folders/1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i?usp=sharing); copy/extract them under a Drive folder such as `/content/drive/MyDrive/foundationpose-assets/`.
+
+After the installer completes, set the paths and object IDs to match your data. For five BOP object IDs `1` through `5`:
+
+```python
+import os
+os.environ["YCB_INPUT_ROOT"] = "/content/data"
+os.environ["FOUNDATIONPOSE_ASSETS_ROOT"] = "/content/drive/MyDrive/foundationpose-assets"
+os.environ["YCBV_TARGET_OBJ_IDS"] = "1,2,3,4,5"
+os.environ["YCBV_PREFERRED_OBJ_IDS"] = "1,2,3,4,5"
+```
+
+Run the end-to-end cells:
+
+```python
+%run /content/FoundationModel/tools/run_colab_pipeline.py
+```
+
+The runner checks GPU access, BOP directory layout, CADs, and weights before starting. It then selects a scene, prepares CNOS templates, runs detector-assisted FoundationPose tracking, computes benchmark CSVs/charts, and renders the final MP4. The runner reuses the cached `mycpp` extension and skips duplicate pip installs. Results are written under `/content/cnos_ycbv_workspace/visualizations/` and `/content/cnos_ycbv_workspace/metrics/`; copy them to Drive before the Colab runtime ends.
+
 ## Cache invalidation and native import errors
 
 The cache is rejected if Python, PyTorch/CUDA, compute capability, compiler versions, C++ ABI, or any pinned source commit differs. Edit the source lock only after deliberately choosing and reviewing new upstream revisions.

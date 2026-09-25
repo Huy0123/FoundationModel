@@ -7,10 +7,11 @@ import importlib.util
 import shutil
 import subprocess
 import sys
+import os
 from pathlib import Path
 
-WORKING_DIR = Path('/kaggle/working')
-FP_ROOT = WORKING_DIR / 'FoundationPose'
+WORKING_DIR = Path(os.environ.get('COLAB_WORK_ROOT', '/content' if Path('/content').exists() else '/kaggle/working'))
+FP_ROOT = Path(os.environ.get('FOUNDATIONPOSE_ROOT', WORKING_DIR / 'FoundationPose'))
 if not (FP_ROOT / '.git').is_dir():
     raise FileNotFoundError('Thiếu FoundationPose; hãy chạy hoàn tất Cell 1 trước khi restart.')
 
@@ -48,22 +49,26 @@ for path in (FP_ROOT, FP_ROOT / 'mycpp', FP_ROOT / 'mycpp' / 'build'):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-print('--- Build C++ extension mycpp ---')
+print('--- Kiểm tra C++ extension mycpp ---')
 build_dir = FP_ROOT / 'mycpp' / 'build'
-build_dir.mkdir(parents=True, exist_ok=True)
-subprocess.run([
-    'cmake', '..',
-    f'-DPYTHON_EXECUTABLE={sys.executable}',
-    f'-Dpybind11_DIR={subprocess.check_output([sys.executable, "-m", "pybind11", "--cmakedir"], text=True).strip()}',
-    '-DCMAKE_BUILD_TYPE=Release',
-], cwd=build_dir, check=True)
-subprocess.run(['cmake', '--build', '.', '--parallel', '2'], cwd=build_dir, check=True)
-
-extensions = list(build_dir.glob('*.so'))
+extensions = list((FP_ROOT / 'mycpp').glob('mycpp*.so'))
 if not extensions:
-    raise RuntimeError(f'Build xong nhưng không thấy file .so trong {build_dir}')
-for extension in extensions:
-    shutil.copy2(extension, FP_ROOT / 'mycpp' / extension.name)
+    print('Không có artifact cache; build mycpp lần đầu.')
+    build_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run([
+        'cmake', '..',
+        f'-DPYTHON_EXECUTABLE={sys.executable}',
+        f'-Dpybind11_DIR={subprocess.check_output([sys.executable, "-m", "pybind11", "--cmakedir"], text=True).strip()}',
+        '-DCMAKE_BUILD_TYPE=Release',
+    ], cwd=build_dir, check=True)
+    subprocess.run(['cmake', '--build', '.', '--parallel', '2'], cwd=build_dir, check=True)
+    extensions = list(build_dir.glob('mycpp*.so'))
+    if not extensions:
+        raise RuntimeError(f'Build xong nhưng không thấy file .so trong {build_dir}')
+    for extension in extensions:
+        shutil.copy2(extension, FP_ROOT / 'mycpp' / extension.name)
+else:
+    print(f'Dùng lại mycpp cache: {extensions[0]}')
 importlib.invalidate_caches()
 import mycpp
 print(f'mycpp OK: {mycpp.__file__}')
@@ -71,10 +76,10 @@ print(f'mycpp OK: {mycpp.__file__}')
 # Chép weights theo cách idempotent: giữ folder đích đã có đủ config.yml.
 DST = FP_ROOT / 'weights'
 DST.mkdir(exist_ok=True)
-ASSET_ROOT = Path('/kaggle/input/datasets/aiopen1/foundationpose-assets')
+ASSET_ROOT = Path(os.environ.get('FOUNDATIONPOSE_ASSETS_ROOT', '/kaggle/input/datasets/aiopen1/foundationpose-assets'))
 for run_name in ('2024-01-11-20-02-45', '2023-10-28-18-33-37'):
     target = DST / run_name
-    if (target / 'config.yml').exists():
+    if (target / 'config.yml').is_file() and (target / 'model_best.pth').is_file():
         print(f'Weights đã có: {run_name}')
         continue
     found = next((p for p in ASSET_ROOT.glob(f'**/{run_name}')

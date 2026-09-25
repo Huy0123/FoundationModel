@@ -13,8 +13,8 @@ from pathlib import Path
 os.environ['PYOPENGL_PLATFORM'] = 'egl'
 os.environ['TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD'] = '1'
 
-CNOS_ROOT = Path('/kaggle/working/cnos')
-WORK_ROOT = Path('/kaggle/working/cnos_ycbv_workspace')
+CNOS_ROOT = Path(os.environ.get('CNOS_ROOT', '/content/cnos' if Path('/content/cnos').is_dir() else '/kaggle/working/cnos'))
+WORK_ROOT = Path(os.environ.get('YCBV_WORK_ROOT', '/kaggle/working/cnos_ycbv_workspace'))
 DATASETS_DIR = WORK_ROOT / 'datasets'
 
 # 1. Clone repo CNOS
@@ -26,24 +26,27 @@ if not (CNOS_ROOT / 'run_inference.py').is_file():
 
 # 2. Cài đặt các thư viện cần thiết cho CNOS & PyRender
 print("--- 2. Cài đặt thư viện bổ trợ cho CNOS & PyRender ---")
-constraint_file = Path('/kaggle/working/cnos_ycbv_constraints.txt')
+constraint_file = Path(os.environ.get('COLAB_WORK_ROOT', '/content')) / 'cnos_ycbv_constraints.txt'
 constraint_file.write_text('numpy==1.26.4\n')  # <-- THÊM DÒNG NÀY ĐỂ TẠO FILE
 os.environ['PIP_CONSTRAINT'] = str(constraint_file)
 
-subprocess.run([sys.executable, '-m', 'pip', 'install', '-q',
-                'hydra-core==1.3.2', 'hydra-colorlog', 'pyrender', 'gdown',
-                'ruamel.yaml', 'distinctipy', 'fvcore', 'iopath', 'onnx',
-                'onnxruntime', 'pycocotools', 'ultralytics==8.0.135'], check=True)
-subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'git+https://github.com/thodan/bop_toolkit.git'], check=True)
-# Cài đặt PyOpenGL tương thích EGL (loại bỏ PyOpenGL-accelerate dễ gây lỗi C-extension)
-subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--no-deps', '--force-reinstall', 'PyOpenGL==3.1.10', 'setuptools==80.9.0'], check=True)
-subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', 'PyOpenGL-accelerate'], check=False)
+if os.environ.get('COLAB_CACHED_ENV') != '1':
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q',
+                    'hydra-core==1.3.2', 'hydra-colorlog', 'pyrender', 'gdown',
+                    'ruamel.yaml', 'distinctipy', 'fvcore', 'iopath', 'onnx',
+                    'onnxruntime', 'pycocotools', 'ultralytics==8.0.135'], check=True)
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'git+https://github.com/thodan/bop_toolkit.git'], check=True)
+    # Cài đặt PyOpenGL tương thích EGL (loại bỏ PyOpenGL-accelerate dễ gây lỗi C-extension)
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--no-deps', '--force-reinstall', 'PyOpenGL==3.1.10', 'setuptools==80.9.0'], check=True)
+    subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', 'PyOpenGL-accelerate'], check=False)
+else:
+    print('Dùng lại dependencies từ tools/install_colab_cached.sh; bỏ qua cài package lần hai.')
 
 # 3. Tạo cấu trúc thư mục alias cho CNOS
 print("--- 3. Thiết lập liên kết dữ liệu cho CNOS ---")
 models_dir = DATASETS_DIR / 'ycbv/models/models'
 models_dir.mkdir(parents=True, exist_ok=True)
-src_models = Path('/kaggle/input/datasets/truonglamnhut/ycb-video-v/ycbv_models/models')
+src_models = Path(os.environ.get('YCB_INPUT_ROOT', '/kaggle/input/datasets/truonglamnhut/ycb-video-v')) / 'ycbv_models' / 'models'
 
 for oid in sorted(TARGET_OBJ_IDS):
     src = src_models / f'obj_{oid:06d}.ply'

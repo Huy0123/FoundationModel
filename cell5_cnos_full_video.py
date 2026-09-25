@@ -9,7 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-CNOS_ROOT = Path('/kaggle/working/cnos')
+CNOS_ROOT = Path(os.environ.get('CNOS_ROOT', '/content/cnos' if Path('/content/cnos').is_dir() else '/kaggle/working/cnos'))
 WORK_ROOT = Path(WORK_ROOT)
 DETECTION_DIR = WORK_ROOT / 'predictions' / 'cnos_fast_events'
 RESULT_FILE = (WORK_ROOT / 'results' / 'cnos_exps' /

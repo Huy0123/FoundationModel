@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 # 1. Đường dẫn YCB-V từ Kaggle Input
-YCB_INPUT = Path('/kaggle/input/datasets/truonglamnhut/ycb-video-v')
+YCB_INPUT = Path(os.environ.get('YCB_INPUT_ROOT', '/kaggle/input/datasets/truonglamnhut/ycb-video-v'))
 TEST_SOURCE = YCB_INPUT / 'ycbv_test_all' / 'test'
 MODEL_ARCHIVE = YCB_INPUT / 'ycbv_models'
 MODEL_SOURCE = MODEL_ARCHIVE / 'models'
@@ -19,12 +19,20 @@ for source in (TEST_SOURCE, MODEL_SOURCE, BASE_META):
         raise FileNotFoundError(f'Thiếu đường dẫn dữ liệu YCB-V: {source}')
 
 # Danh sách class cần benchmark. Không yêu cầu tất cả class phải xuất hiện trong scene.
-PREFERRED_OBJ_IDS = {2, 3, 4, 5, 6}
-TARGET_OBJ_IDS = set(range(1, 22))  # Toàn bộ 21 CAD YCB-V, không dùng GT để chọn CAD.
+TARGET_OBJ_IDS = {
+    int(value) for value in os.environ.get('YCBV_TARGET_OBJ_IDS', ','.join(map(str, range(1, 22)))).split(',')
+    if value.strip()
+}
+PREFERRED_OBJ_IDS = {
+    int(value) for value in os.environ.get('YCBV_PREFERRED_OBJ_IDS', '2,3,4,5,6').split(',')
+    if value.strip()
+} & TARGET_OBJ_IDS
+if not PREFERRED_OBJ_IDS:
+    PREFERRED_OBJ_IDS = set(TARGET_OBJ_IDS)
 MIN_UNOCCLUDED_FRACTION = 0.80
 MIN_VISIBLE_PIXELS = 1
 
-WORK_ROOT = Path('/kaggle/working/cnos_ycbv_workspace')
+WORK_ROOT = Path(os.environ.get('YCBV_WORK_ROOT', '/kaggle/working/cnos_ycbv_workspace'))
 DATA_ROOT = WORK_ROOT / 'datasets'
 YCB_ROOT = DATA_ROOT / 'ycbv'
 WORK_ROOT.mkdir(parents=True, exist_ok=True)
@@ -168,8 +176,6 @@ candidates.sort(
 selected = candidates[0]
 sid = int(selected['scene_id'])
 frame_ids = list(selected['frame_ids'])  # Tất cả frame; không dùng slicing/truncation.
-TARGET_OBJ_IDS = set(range(1, 22))
-
 # Toàn bộ target BOP của scene trong full video, không giới hạn số frame.
 filtered_targets = [
     row for row in all_targets

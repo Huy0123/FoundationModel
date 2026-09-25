@@ -19,7 +19,7 @@ missing = [name for name in required if name not in globals()]
 if missing:
     raise RuntimeError(f"Thiếu biến từ các cell trước: {', '.join(missing)}")
 
-FP_ROOT = Path('/kaggle/working/FoundationPose')
+FP_ROOT = Path(os.environ.get('FOUNDATIONPOSE_ROOT', '/content/FoundationPose' if Path('/content/FoundationPose').is_dir() else '/kaggle/working/FoundationPose'))
 if not (FP_ROOT / '.git').is_dir():
     raise FileNotFoundError(f'Không tìm thấy FoundationPose tại {FP_ROOT}; chạy cell setup trước.')
 for p in (FP_ROOT, FP_ROOT / 'mycpp', FP_ROOT / 'mycpp' / 'build'):
