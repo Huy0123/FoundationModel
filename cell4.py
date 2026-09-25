@@ -46,7 +46,10 @@ else:
 print("--- 3. Thiết lập liên kết dữ liệu cho CNOS ---")
 models_dir = DATASETS_DIR / 'ycbv/models/models'
 models_dir.mkdir(parents=True, exist_ok=True)
-src_models = Path(os.environ.get('YCB_INPUT_ROOT', '/kaggle/input/datasets/truonglamnhut/ycb-video-v')) / 'ycbv_models' / 'models'
+src_models = Path(os.environ.get(
+    'YCBV_MODELS_SOURCE',
+    Path(os.environ.get('YCB_INPUT_ROOT', '/kaggle/input/datasets/truonglamnhut/ycb-video-v')) / 'ycbv_models' / 'models'
+))
 
 for oid in sorted(TARGET_OBJ_IDS):
     src = src_models / f'obj_{oid:06d}.ply'

@@ -9,12 +9,13 @@ from pathlib import Path
 
 # 1. Đường dẫn YCB-V từ Kaggle Input
 YCB_INPUT = Path(os.environ.get('YCB_INPUT_ROOT', '/kaggle/input/datasets/truonglamnhut/ycb-video-v'))
-TEST_SOURCE = YCB_INPUT / 'ycbv_test_all' / 'test'
+TEST_SOURCE = Path(os.environ.get('YCBV_TEST_ROOT', YCB_INPUT / 'ycbv_test_all' / 'test'))
 MODEL_ARCHIVE = YCB_INPUT / 'ycbv_models'
-MODEL_SOURCE = MODEL_ARCHIVE / 'models'
+MODEL_SOURCE = Path(os.environ.get('YCBV_MODELS_SOURCE', MODEL_ARCHIVE / 'models'))
 BASE_META = YCB_INPUT / 'ycbv_base' / 'ycbv'
+TARGETS_PATH = Path(os.environ.get('YCBV_TARGETS_FILE', BASE_META / 'test_targets_bop19.json'))
 
-for source in (TEST_SOURCE, MODEL_SOURCE, BASE_META):
+for source in (TEST_SOURCE, MODEL_SOURCE, TARGETS_PATH):
     if not source.exists():
         raise FileNotFoundError(f'Thiếu đường dẫn dữ liệu YCB-V: {source}')
 
@@ -71,7 +72,7 @@ def scene_frame_ids(scene_dir):
 
 # 2. Tìm scene có nhiều frame mục tiêu rõ, ít che khuất.
 # scene_gt_info.json (visib_fract/px_count_visib) là nguồn chấm mức che khuất.
-targets_path = BASE_META / 'test_targets_bop19.json'
+targets_path = TARGETS_PATH
 if not targets_path.is_file():
     raise FileNotFoundError(f'Thiếu BOP target list: {targets_path}')
 all_targets = read_json(targets_path)

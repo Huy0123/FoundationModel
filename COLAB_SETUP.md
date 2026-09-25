@@ -59,7 +59,19 @@ The installer appends output to `/content/colab_setup.log`, including environmen
 
 ## Run the full RGB-D tracking and benchmark pipeline
 
-The pipeline runner executes the existing cells in one Python process and skips the old Kaggle installer. It expects the BOP YCB-V directory layout:
+The pipeline runner executes the existing cells in one Python process and skips the old Kaggle installer. It accepts a standard BOP YCB-V layout or the supplied `ycbv_5cad_test_colab.zip`. The supplied archive contains RGB-D scenes, camera/GT annotations, BOP target metadata, and five OBJ CADs. Unzip it as shown earlier to `/content/data`; the runner detects `/content/data/ycbv_5cad_test` automatically. It converts those five meter-scale OBJ meshes to BOP PLY meshes in millimeters and caches them under `/content/cnos_ycbv_workspace/converted_ycbv_models/`.
+
+The archive's five CADs map to BOP object IDs `2,4,5,6,9`:
+
+```text
+003_cracker_box       -> 2
+005_tomato_soup_can   -> 4
+006_mustard_bottle    -> 5
+007_tuna_fish_can     -> 6
+010_potted_meat_can   -> 9
+```
+
+For another standard BOP YCB-V extraction, the expected layout is:
 
 ```text
 <YCB_INPUT_ROOT>/
@@ -68,16 +80,16 @@ The pipeline runner executes the existing cells in one Python process and skips 
   ycbv_base/ycbv/test_targets_bop19.json
 ```
 
-For pose metrics, provide the BOP ground-truth annotations. A folder containing only RGB video and CAD meshes can support neither this RGB-D registration/tracking flow nor ADD/ADD-S benchmark metrics by itself. The current pipeline also needs both FoundationPose checkpoint folders: `2024-01-11-20-02-45` (scorer) and `2023-10-28-18-33-37` (refiner), each with `config.yml` and `model_best.pth`. The official FoundationPose README links to the [pretrained weights](https://drive.google.com/drive/folders/1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i?usp=sharing); copy/extract them under a Drive folder such as `/content/drive/MyDrive/foundationpose-assets/`.
+The supplied archive includes the annotations needed for pose metrics. The pipeline also needs both FoundationPose checkpoint folders: `2024-01-11-20-02-45` (scorer) and `2023-10-28-18-33-37` (refiner), each with `config.yml` and `model_best.pth`. The official FoundationPose README links to the [pretrained weights](https://drive.google.com/drive/folders/1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i?usp=sharing); copy/extract them under `/content/drive/MyDrive/foundationpose-assets/`.
 
-After the installer completes, set the paths and object IDs to match your data. For five BOP object IDs `1` through `5`:
+After the installer finishes building all wheels and prints its final verification success, update the cloned repository and set the asset path. The runner auto-detects the supplied archive and these five object IDs:
 
 ```python
 import os
 os.environ["YCB_INPUT_ROOT"] = "/content/data"
 os.environ["FOUNDATIONPOSE_ASSETS_ROOT"] = "/content/drive/MyDrive/foundationpose-assets"
-os.environ["YCBV_TARGET_OBJ_IDS"] = "1,2,3,4,5"
-os.environ["YCBV_PREFERRED_OBJ_IDS"] = "1,2,3,4,5"
+os.environ["YCBV_TARGET_OBJ_IDS"] = "2,4,5,6,9"
+os.environ["YCBV_PREFERRED_OBJ_IDS"] = "2,4,5,6,9"
 ```
 
 Run the end-to-end cells:
@@ -85,6 +97,8 @@ Run the end-to-end cells:
 ```python
 %run /content/FoundationModel/tools/run_colab_pipeline.py
 ```
+
+If the notebook already cloned the repo before this runner update, run `!git -C /content/FoundationModel pull` first. Do not start the runner while the PyTorch3D wheel is still building. After the installer reports success, restart the Colab session once so the active kernel reloads the compiled packages; then mount Drive again, pull the repo update, and run the commands above. Keep the runtime session alive until the runner writes its final success line; then copy the MP4 and metrics from the workspace to Drive.
 
 The runner checks GPU access, BOP directory layout, CADs, and weights before starting. It then selects a scene, prepares CNOS templates, runs detector-assisted FoundationPose tracking, computes benchmark CSVs/charts, and renders the final MP4. The runner reuses the cached `mycpp` extension and skips duplicate pip installs. Results are written under `/content/cnos_ycbv_workspace/visualizations/` and `/content/cnos_ycbv_workspace/metrics/`; copy them to Drive before the Colab runtime ends.
 
